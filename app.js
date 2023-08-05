@@ -80,7 +80,7 @@ app.post("/login/", async (request, response) => {
   const dbUser = await database.get(selectUser);
   if (dbUser !== undefined) {
     const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
-    if (isPasswordMatched === true) {
+    if (isPasswordMatched) {
       const payload = {
         username: username,
       };
@@ -98,7 +98,7 @@ app.post("/login/", async (request, response) => {
 
 //middle ware
 
-function authenticateToken(request, response, next) {
+const authenticateToken = (request, response, next) => {
   let jwtToken = null;
   const authHeader = request.headers["authorization"];
 
@@ -114,11 +114,12 @@ function authenticateToken(request, response, next) {
         response.status(401);
         response.send("Invalid JWT Token");
       } else {
+        request.username = payload.username;
         next();
       }
     });
   }
-}
+};
 
 const tweetsResponse = (item) => {
   return {
@@ -127,13 +128,6 @@ const tweetsResponse = (item) => {
     dateTime: item.date_time,
   };
 };
-
-const getTweetObject = (item) => ({
-  tweet: item.tweet,
-  likes: item.likes,
-  replies: item.replies,
-  dateTime: item.date_time,
-});
 
 //user tweets api
 
@@ -161,7 +155,7 @@ app.get("/user/following/", authenticateToken, async (request, response) => {
   const followingUserQuery = `
     SELECT user.name
     FROM follower LEFT JOIN user ON follower.following_user_id=user.user_id
-    WHERE follower.follower_user_id=(SELECT user_id  FROM user WHERE username='${request.username}')
+    WHERE follower.follower_user_id=(SELECT user_id  FROM user WHERE username='${request.username}');
     `;
   const getFollowingUsers = await database.all(followingUserQuery);
   response.send(getFollowingUsers);
@@ -272,7 +266,7 @@ app.get("/user/tweets/", authenticateToken, async (request, response) => {
 app.post("/user/tweets/", authenticateToken, async (request, response) => {
   const { tweet } = request.body;
   const { user_id } = await database.get(
-    `SELECT user_id FROM user WHERE username='${request.username}'`
+    `SELECT user_id FROM user WHERE username='${request.username}';`
   );
   await database.run(`
     INSERT INTO tweet (tweet,user_id)
